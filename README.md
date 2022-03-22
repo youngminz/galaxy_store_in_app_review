@@ -1,15 +1,20 @@
 # galaxy_store_in_app_review
 
-A new flutter plugin project.
+This is a library that wraps the [In App Review API](https://seller.samsungapps.com/notice/getNoticeDetail.as?csNoticeID=0000005510) provided by the Samsung Galaxy Store for easy use in Flutter.
+Much inspired by [britannio/in_app_review](https://github.com/britannio/in_app_review).
 
-## Getting Started
+![Galaxy Store In App Review](./screenshots/galaxy_store.png)
 
-This project is a starting point for a Flutter
-[plug-in package](https://flutter.dev/developing-packages/),
-a specialized package that includes platform-specific implementation code for
-Android and/or iOS.
+## Usage
 
-For help getting started with Flutter, view our
-[online documentation](https://flutter.dev/docs), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```dart
+import 'package:galaxy_store_in_app_review/galaxy_store_in_app_review.dart';
 
+if (await GalaxyStoreInAppReview.isAvailable()) {
+	await GalaxyStoreInAppReview.requestReview();
+}
+```
+
+## Disclaimer
+
+This is an early project. Please let me know if there is a problem.
