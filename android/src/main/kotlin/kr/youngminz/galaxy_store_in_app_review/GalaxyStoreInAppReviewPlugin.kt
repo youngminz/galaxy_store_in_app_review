@@ -64,6 +64,9 @@ class GalaxyStoreInAppReviewPlugin : FlutterPlugin, MethodCallHandler, ActivityA
             }
         } catch (e: PackageManager.NameNotFoundException) {
             Log.d(TAG, "GalaxyStore is not installed in your device")
+
+            result.success(false)
+            return
         }
 
         // 2. Check review authority by using GalaxyStore
