@@ -9,14 +9,16 @@ class GalaxyStoreInAppReview {
 
   /// Checks if the device is able to show a Galaxy Store review dialog.
   static Future<bool> isAvailable(
-      {Duration timeout = const Duration(seconds: 10)}) async {
+      {String? targetPackage,
+      Duration timeout = const Duration(seconds: 10)}) async {
     // Galaxy Store is available only on Android devices.
     if (!Platform.isAndroid) return false;
 
     // A timeout may occur due to network issues.
     // In this case, a TimeoutException is thrown.
     try {
-      return await _channel.invokeMethod("isAvailable").timeout(timeout);
+      return await _channel.invokeMethod(
+          "isAvailable", {"targetPackage": targetPackage}).timeout(timeout);
     } on TimeoutException {
       return false;
     }
@@ -29,5 +31,14 @@ class GalaxyStoreInAppReview {
     if (!Platform.isAndroid) return;
 
     await _channel.invokeMethod("requestReview");
+  }
+
+  /// Opens the Galaxy Store.
+  static Future<void> openStoreListing({String? targetPackage}) async {
+    // Galaxy Store is available only on Android devices.
+    if (!Platform.isAndroid) return;
+
+    await _channel
+        .invokeMethod("openStoreListing", {"targetPackage": targetPackage});
   }
 }

@@ -8,7 +8,6 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.util.Log
-
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
@@ -16,126 +15,98 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
 
 class GalaxyStoreInAppReviewPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
-    private val mainScope = CoroutineScope(Dispatchers.Main)
-    private var channel: MethodChannel? = null
-    private var activity: Activity? = null
-    private var applicationContext: Context? = null
-    private var deeplinkUri: String? = null
-
-    companion object {
-        const val CHANNEL = "galaxy_store_in_app_review"
-        const val TAG = "GalaxyStoreInAppReview"
-    }
-
-    override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
-        channel = MethodChannel(flutterPluginBinding.binaryMessenger, CHANNEL)
-        channel!!.setMethodCallHandler(this)
-        applicationContext = flutterPluginBinding.applicationContext
-    }
-
-    override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
-        channel!!.setMethodCallHandler(null)
-        applicationContext = null
-    }
 
     override fun onMethodCall(call: MethodCall, result: Result) {
         when (call.method) {
             "isAvailable" -> {
-                mainScope.launch {
-                    if (!isGalaxyStoreReviewAPISupported()) {
-                        Log.d(TAG, "isAvailable: isGalaxyStoreReviewAPISupported() -> false")
-                        result.success(false)
-                        return@launch
-                    }
-                    if (!canWriteReview()) {
-                        Log.d(TAG, "isAvailable: canWriteReview() -> false")
-                        result.success(false)
-                        return@launch
-                    }
-                    Log.d(TAG, "isAvailable: true")
-                    result.success(true)
-                }
+                val targetPackage: String? = call.argument("targetPackage")
+                isAvailable(targetPackage, result)
             }
             "requestReview" -> {
                 requestReview()
+            }
+            "openStoreListing" -> {
+                val targetPackage: String? = call.argument("targetPackage")
+                openStoreListing(targetPackage)
             }
             else -> result.notImplemented()
         }
     }
 
-    override fun onAttachedToActivity(binding: ActivityPluginBinding) {
-        activity = binding.activity
-    }
-
-    override fun onDetachedFromActivityForConfigChanges() {
-        activity = null
-    }
-
-    override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
-        activity = binding.activity
-    }
-
-    override fun onDetachedFromActivity() {
-        activity = null
-    }
-
     // Documentation: https://developer.samsung.com/galaxy-store/customer-review/galaxy-store-review-broadcast.html
 
-    private fun isGalaxyStoreReviewAPISupported(): Boolean {
-        /** To request the user to write a review,
-         * it is necessary to check whether the Galaxy Store of the device supports the Review API.
-         * Rating API is supported from Galaxy Store Client 4.5.22.7 or later.
-         * */
+    private fun isAvailable(targetPackageFromFlutter: String?, result: Result) {
+        val targetPackage = targetPackageFromFlutter ?: applicationContext.packageName
 
-        val applicationInfo = applicationContext!!.packageManager.getApplicationInfo("com.sec.android.app.samsungapps", PackageManager.GET_META_DATA)
-        val inAppReviewVersion = applicationInfo.metaData.getInt("com.sec.android.app.samsungapps.review.inappReview", 0)
-        return inAppReviewVersion > 0
-    }
+        Log.d(TAG, "Starting availability check for $targetPackage")
 
-    private suspend fun canWriteReview(): Boolean {
-        /** After checking the Galaxy Store version,
-         * it requires to check whether the user can write a review.
-         * Returns true if all of the conditions below are satisfied.
-         *
-         * - Logged into Samsung Account
-         * - App downloaded or updated from Galaxy Store
-         * - No review history within the last year
-         */
+        // Your app should be installed in your device to check a review authority
+        try {
+            applicationContext.packageManager.getPackageInfo(targetPackage, 0)
+        } catch (e: PackageManager.NameNotFoundException) {
+            Log.d(TAG, "$targetPackage is not installed in your device")
 
-        // 1. Check your review authority by Galaxy Store package
+            result.success(false)
+            return
+        }
+
+        // 1. Check whether if the GalaxyStore currently installed in your device has in-app review function
+        try {
+            val applicationInfo = applicationContext.packageManager.getApplicationInfo("com.sec.android.app.samsungapps", PackageManager.GET_META_DATA)
+            val inAppReviewVersion = applicationInfo.metaData.getInt("com.sec.android.app.samsungapps.review.inappReview", 0)
+            if (inAppReviewVersion == 0) {
+                Log.d(TAG, "GalaxyStore does not support in-app review function. Please update the GalaxyStore to the latest version.")
+
+                result.success(false)
+                return
+            }
+        } catch (e: PackageManager.NameNotFoundException) {
+            Log.d(TAG, "GalaxyStore is not installed in your device")
+        }
+
+        // 2. Check review authority by using GalaxyStore
         val intent = Intent("com.sec.android.app.samsungapps.REQUEST_INAPP_REVIEW_AUTHORITY")
         intent.setPackage("com.sec.android.app.samsungapps")
-        intent.putExtra("callerPackage", applicationContext!!.packageName)
-        applicationContext!!.sendBroadcast(intent)
+        intent.putExtra("callerPackage", applicationContext.packageName)
+        applicationContext.sendBroadcast(intent)
 
-        // 2. Get result of authority checking from Galaxy Store package
+        Log.d(TAG, "Checking review authority from GalaxyStore server...")
+
+        // 3. Receive result of review authority checking from GalaxyStore
         val intentFilter = IntentFilter()
         intentFilter.addAction("com.sec.android.app.samsungapps.RESPONSE_INAPP_REVIEW_AUTHORITY")
+        val broadcastReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                applicationContext.unregisterReceiver(this)
+                Log.d(TAG, "Authority checked. Got response")
 
-        return suspendCoroutine { continuation ->
-            val broadcastReceiver = object : BroadcastReceiver() {
-                override fun onReceive(context: Context?, intent: Intent?) {
-                    applicationContext!!.unregisterReceiver(this)
+                // If hasAuthority is true, you have authority to write review.
+                // Now you can call WriteReview Activity which is imported in GalaxyStore
+                val hasAuthority = intent!!.getBooleanExtra("hasAuthority", false)
 
-                    // If true, you have authority to write review
-                    val hasAuthority = intent!!.getBooleanExtra("hasAuthority", false)
+                val errorCode = intent.getIntExtra("errorCode", 0)
+                if (errorCode > 0) {
+                    /* Something went wrong while check the authority
+                   1000 : A mandatory parameter to check user status is not available
+                   2000 : Server error
+                   4002 : Content is not available in Galaxy Store for the user
+                   5000 : The user is not logged in to a Samsung Account on the device
+                   100015 : Repeated request for authorization happens within 10 seconds  */
 
+                    Log.d(TAG, "hasAuthority : $hasAuthority, errorCode : $errorCode")
+                } else {
                     // By using deeplinkUrlForReview, you can open review activity of Galaxy Store
                     deeplinkUri = intent.getStringExtra("deeplinkUri")
 
-                    continuation.resume(hasAuthority)
+                    Log.d(TAG, "hasAuthority : $hasAuthority, deeplinkUri : $deeplinkUri")
                 }
-            }
 
-            applicationContext!!.registerReceiver(broadcastReceiver, intentFilter)
+                result.success(hasAuthority)
+            }
         }
+        applicationContext.registerReceiver(broadcastReceiver, intentFilter)
     }
 
     private fun requestReview() {
@@ -150,6 +121,53 @@ class GalaxyStoreInAppReviewPlugin : FlutterPlugin, MethodCallHandler, ActivityA
         val intent = Intent()
         intent.data = Uri.parse(deeplinkUri)
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
-        activity!!.startActivity(intent)
+        activity.startActivity(intent)
+    }
+
+    private fun openStoreListing(targetPackageFromFlutter: String?) {
+        val targetPackage = targetPackageFromFlutter ?: applicationContext.packageName
+
+        val intent = Intent()
+        intent.data = Uri.parse("samsungapps://ProductDetail/$targetPackage")
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
+        activity.startActivity(intent)
+    }
+
+    // Variables, constants and override functions
+
+    private lateinit var channel: MethodChannel
+    private lateinit var activity: Activity
+    private lateinit var applicationContext: Context
+    private var deeplinkUri: String? = null
+
+    companion object {
+        const val CHANNEL = "galaxy_store_in_app_review"
+        const val TAG = "GalaxyStoreInAppReview"
+    }
+
+    override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
+        channel = MethodChannel(flutterPluginBinding.binaryMessenger, CHANNEL)
+        channel.setMethodCallHandler(this)
+        applicationContext = flutterPluginBinding.applicationContext
+    }
+
+    override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+        channel.setMethodCallHandler(null)
+    }
+
+    override fun onAttachedToActivity(binding: ActivityPluginBinding) {
+        activity = binding.activity
+    }
+
+    override fun onDetachedFromActivityForConfigChanges() {
+
+    }
+
+    override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
+        activity = binding.activity
+    }
+
+    override fun onDetachedFromActivity() {
+
     }
 }
