@@ -86,7 +86,7 @@ class GalaxyStoreInAppReviewPlugin : FlutterPlugin, MethodCallHandler, ActivityA
         activity = null
     }
 
-    // Original source code : https://seller.samsungapps.com/notice/getNoticeDetail.as?csNoticeID=0000005510
+    // Documentation: https://developer.samsung.com/galaxy-store/customer-review/galaxy-store-review-broadcast.html
 
     private fun isGalaxyStoreReviewAPISupported(): Boolean {
         /** To request the user to write a review,
