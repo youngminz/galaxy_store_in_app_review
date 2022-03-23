@@ -5,16 +5,24 @@ Much inspired by [britannio/in_app_review](https://github.com/britannio/in_app_r
 
 ![Galaxy Store In App Review](./screenshots/galaxy_store.png)
 
-## Usage
+## `requestReview()`
 
 ```dart
 import 'package:galaxy_store_in_app_review/galaxy_store_in_app_review.dart';
 
 if (await GalaxyStoreInAppReview.isAvailable()) {
-    await GalaxyStoreInAppReview.requestReview();
+    GalaxyStoreInAppReview.requestReview();
 }
 ```
 
-## Disclaimer
+## `openStoreListing()`
+
+```dart
+import 'package:galaxy_store_in_app_review/galaxy_store_in_app_review.dart';
+
+GalaxyStoreInAppReview.openStoreListing();
+```
+
+# Disclaimer
 
 This is an early project. Please let me know if there is a problem.
