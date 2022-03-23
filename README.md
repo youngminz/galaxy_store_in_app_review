@@ -5,6 +5,8 @@ Much inspired by [britannio/in_app_review](https://github.com/britannio/in_app_r
 
 ![Galaxy Store In App Review](./screenshots/galaxy_store.png)
 
+# Usage
+
 ## `requestReview()`
 
 ```dart
