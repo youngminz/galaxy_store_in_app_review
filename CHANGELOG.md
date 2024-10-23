@@ -9,3 +9,8 @@
 ## 0.0.3
 
 * Fix timeout issue if Galaxy Store is not installed
+
+## 0.1.0
+
+* Update compatibility for latest Android and Flutter versions
+
