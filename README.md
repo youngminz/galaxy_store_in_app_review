@@ -7,6 +7,20 @@ Much inspired by [britannio/in_app_review](https://github.com/britannio/in_app_r
 
 ![Galaxy Store In App Review](https://raw.githubusercontent.com/youngminz/galaxy_store_in_app_review/main/screenshots/galaxy_store.png)
 
+# Android App Configuration
+
+Due to package visibility changes in Android 11 (API level 30) and above, apps can no longer query package information from other installed apps by default. To enable the Galaxy Store in-app review functionality, you must explicitly declare the Galaxy Store package in your AndroidManifest.xml.
+
+Add the following configuration to your `AndroidManifest.xml`:
+
+```xml
+<manifest>
+  <queries>
+    <package android:name="com.sec.android.app.samsungapps" />
+  </queries>
+</manifest>
+```
+
 # Usage
 
 ## `requestReview()`

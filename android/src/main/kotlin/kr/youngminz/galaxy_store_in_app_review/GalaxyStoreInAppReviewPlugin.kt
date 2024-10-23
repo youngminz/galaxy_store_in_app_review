@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.util.Log
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
@@ -63,7 +64,15 @@ class GalaxyStoreInAppReviewPlugin : FlutterPlugin, MethodCallHandler, ActivityA
                 return
             }
         } catch (e: PackageManager.NameNotFoundException) {
-            Log.d(TAG, "GalaxyStore is not installed in your device")
+            Log.e(TAG, "GalaxyStore package verification failed: Package not found")
+            Log.i(TAG, "If GalaxyStore is installed, verify the following permission in AndroidManifest.xml:")
+            Log.i(TAG, """
+        <manifest>
+          <queries>
+            <package android:name="com.sec.android.app.samsungapps" />
+          </queries>
+        </manifest>
+    """.trimIndent())
 
             result.success(false)
             return
@@ -109,7 +118,11 @@ class GalaxyStoreInAppReviewPlugin : FlutterPlugin, MethodCallHandler, ActivityA
                 result.success(hasAuthority)
             }
         }
-        applicationContext.registerReceiver(broadcastReceiver, intentFilter)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            applicationContext.registerReceiver(broadcastReceiver, intentFilter, Context.RECEIVER_EXPORTED)
+        } else {
+            applicationContext.registerReceiver(broadcastReceiver, intentFilter)
+        }
     }
 
     private fun requestReview() {
