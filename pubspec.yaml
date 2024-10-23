@@ -1,6 +1,6 @@
 name: galaxy_store_in_app_review
 description: This is a library that wraps the Galaxy Store Review Broadcast provided by the Samsung Galaxy Store for easy use in Flutter.
-version: 0.0.3
+version: 0.1.0
 homepage: https://github.com/youngminz/galaxy_store_in_app_review
 
 environment:
